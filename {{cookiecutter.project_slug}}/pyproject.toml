@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{cookiecutter.project_slug}}"
+version = "0.1.0"
+description = "{{cookiecutter.description}}"
+readme = "README.md"
+requires-python = ">={{cookiecutter.python_version}}"
+authors = [
+    {name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}"},
+]
+license = { text = "{{cookiecutter.license}}" }
+keywords = ["python", "template", "project"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: {{cookiecutter.python_version}}",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "snakeviz"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests", "docs"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.ruff]
+line-length = 88
+target-version = "py{{cookiecutter.python_version.replace('.', '')}}"
+fix = true
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort import order
+    "D",   # pydocstyle
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "{{cookiecutter.python_version}}"
+strict = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_return_any = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
