@@ -6,5 +6,5 @@
     "author_email": "your.email@example.com",
     "description": "A professional Python project",
     "python_version": "3.11",
-    "license": ["MIT", "Apache-2.0", "GPL-3.0", "BSD-3-Clause"]
+    "license": ["MIT", "Apache-2.0", "GPL-3.0", "BSD-3-Clause", "None", "Other"]
 }
