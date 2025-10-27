@@ -32,7 +32,7 @@ pre-commit install
 
 ```bash
 # Run the main module (recommended)
-python -m {{cookiecutter.package_name}}
+python -m {{cookiecutter.package_name}}.main
 
 # Or run directly (not recommended - may break relative imports)
 python src/{{cookiecutter.package_name}}/main.py
