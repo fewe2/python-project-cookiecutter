@@ -32,10 +32,10 @@ format: ## Format code
 	$(VENV)/ruff format .
 
 type-check: ## Run type checking
-	$(VENV)/mypy .
+	$(VENV)/mypy src/{{cookiecutter.package_name}}
 
 profile: ## Profile the app
-	python -m cProfile -o profile_results.prof -m {{cookiecutter.package_name}}
+	python -m cProfile -o profile_results.prof -m {{cookiecutter.package_name}}.main
 	$(VENV)/snakeviz profile_results.prof
 
 clean: ## Clean up cache and temporary files
