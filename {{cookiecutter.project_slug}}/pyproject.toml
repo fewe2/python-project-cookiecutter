@@ -19,7 +19,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: {{cookiecutter.python_version}}",
 ]
-dependencies = []
+dependencies = [{% if cookiecutter.include_cdk == 'yes' %}
+    "fastapi",
+    "uvicorn[standard]",
+{% endif %}]
 
 [project.optional-dependencies]
 dev = [
@@ -28,8 +31,14 @@ dev = [
     "mypy",
     "pytest",
     "pytest-cov",
-    "snakeviz"
+    "snakeviz",{% if cookiecutter.include_cdk == 'yes' %}
+    "httpx",  # for testing FastAPI
+{% endif %}
 ]
+{% if cookiecutter.include_cdk == 'yes' %}cdk = [
+    "aws-cdk-lib>=2.100.0",
+    "constructs>=10.0.0",
+]{% endif %}
 
 [tool.setuptools.packages.find]
 where = ["src"]

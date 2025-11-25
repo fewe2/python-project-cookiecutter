@@ -13,10 +13,11 @@ install: ## Install the package in development mode
 	fi
 	@echo "Installing package in development mode..."
 	$(VENV)/pip install --upgrade pip
-	$(VENV)/pip install -e ".[dev]"
+	$(VENV)/pip install -e ".[dev]"{% if cookiecutter.include_cdk == 'yes' %}
+	$(VENV)/pip install -e ".[cdk]"{% endif %}
 	@echo "Installing pre-commit hooks..."
 	$(VENV)/pre-commit install
-	@echo "\n✅ Installation complete! Activate your virtual environment with:"
+	@echo "\nInstallation complete! Activate your virtual environment with:"
 	@echo "source .venv/bin/activate"
 
 test: ## Run tests
@@ -50,4 +51,39 @@ reinstall: clean install ## Clean and reinstall the package
 
 shell: ## Activate virtual environment in a new shell
 	@echo "Activating virtual environment..."
-	@exec $(SHELL) -c 'source .venv/bin/activate && exec $(SHELL)'
+	@exec $(SHELL) -c 'source .venv/bin/activate && exec $(SHELL)'{% if cookiecutter.include_cdk == 'yes' %}
+
+# CDK Commands
+cdk-bootstrap: ## Bootstrap CDK (run once per account/region)
+	cd infrastructure && $(VENV)/cdk bootstrap
+
+cdk-synth: ## Synthesize CDK templates
+	cd infrastructure && $(VENV)/cdk synth
+
+cdk-diff: ## Show CDK diff
+	cd infrastructure && $(VENV)/cdk diff
+
+cdk-deploy: ## Deploy CDK stacks
+	cd infrastructure && $(VENV)/cdk deploy --all --require-approval never
+
+cdk-destroy: ## Destroy CDK stacks
+	cd infrastructure && $(VENV)/cdk destroy --all --force
+
+cdk-cleanup-branch: ## Cleanup current branch deployment
+	@echo "Cleaning up deployment for current branch..."
+	cd infrastructure && $(VENV)/cdk destroy --all --force
+
+cdk-list: ## List all CDK stacks
+	cd infrastructure && $(VENV)/cdk list
+
+cleanup-branches: ## Cleanup orphaned feature branch stacks
+	$(VENV)/python scripts/cleanup-feature-branches.py
+
+docker-build: ## Build Docker image
+	docker build -t {{cookiecutter.project_slug}} .
+
+docker-run: ## Run Docker container locally
+	docker run -p 8000:8000 --env ENVIRONMENT=development {{cookiecutter.project_slug}}
+
+dev-server: ## Run development server
+	$(VENV)/python -m {{cookiecutter.package_name}}{% endif %}

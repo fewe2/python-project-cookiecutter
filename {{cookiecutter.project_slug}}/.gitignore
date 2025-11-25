@@ -51,4 +51,18 @@ dmypy.json
 
 # Logs
 *.log
-.log/
+.log/{% if cookiecutter.include_cdk == 'yes' %}
+
+# CDK
+cdk.out/
+*.js
+*.d.ts
+node_modules/
+
+# AWS
+.aws/
+
+# Environment variables
+.env
+.env.local
+.env.*.local{% endif %}
