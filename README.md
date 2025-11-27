@@ -1,5 +1,7 @@
 # Python Project Cookiecutter Template
 
+[-] to do: check gitlab pipeline for unnessecary stuff
+
 A professional Python project template with modern tooling.
 
 ## Features

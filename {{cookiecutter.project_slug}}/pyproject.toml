@@ -20,8 +20,7 @@ classifiers = [
     "Programming Language :: Python :: {{cookiecutter.python_version}}",
 ]
 dependencies = [{% if cookiecutter.include_cdk == 'yes' %}
-    "fastapi",
-    "uvicorn[standard]",
+    "boto3",
 {% endif %}]
 
 [project.optional-dependencies]

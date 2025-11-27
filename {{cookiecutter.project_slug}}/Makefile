@@ -77,13 +77,4 @@ cdk-list: ## List all CDK stacks
 	cd infrastructure && $(VENV)/cdk list
 
 cleanup-branches: ## Cleanup orphaned feature branch stacks
-	$(VENV)/python scripts/cleanup-feature-branches.py
-
-docker-build: ## Build Docker image
-	docker build -t {{cookiecutter.project_slug}} .
-
-docker-run: ## Run Docker container locally
-	docker run -p 8000:8000 --env ENVIRONMENT=development {{cookiecutter.project_slug}}
-
-dev-server: ## Run development server
-	$(VENV)/python -m {{cookiecutter.package_name}}{% endif %}
+	$(VENV)/python scripts/cleanup-feature-branches.py{% endif %}

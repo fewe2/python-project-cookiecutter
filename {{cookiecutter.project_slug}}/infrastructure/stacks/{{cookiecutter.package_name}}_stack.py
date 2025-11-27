@@ -1,21 +1,24 @@
-"""Main application stack."""
+"""Main application stack with Lambda, SQS, and S3."""
 {% if cookiecutter.include_cdk == 'yes' %}
 from typing import Any
 
 import aws_cdk as cdk
 from aws_cdk import (
+    Duration,
     Stack,
-    aws_ec2 as ec2,
-    aws_ecs as ecs,
-    aws_ecs_patterns as ecs_patterns,
+    aws_iam as iam,
+    aws_lambda as lambda_,
+    aws_lambda_event_sources as lambda_event_sources,
     aws_logs as logs,
+    aws_s3 as s3,
+    aws_sqs as sqs,
     aws_ssm as ssm,
 )
 from constructs import Construct
 
 
 class {{cookiecutter.package_name.title().replace('_', '')}}Stack(Stack):
-    """Main application stack with infrastructure example."""
+    """Main application stack. Example with Lambda, SQS, and S3."""
 
     def __init__(
         self,
@@ -28,109 +31,154 @@ class {{cookiecutter.package_name.title().replace('_', '')}}Stack(Stack):
 
         self.environment_name = environment_name
 
-        # VPC with public and private subnets
-        self.vpc = ec2.Vpc(
+        # S3 Bucket for data storage
+        self.bucket = s3.Bucket(
             self,
-            "VPC",
-            max_azs=2,
-            nat_gateways=1 if environment_name == "prod" else 0,
-            subnet_configuration=[
-                ec2.SubnetConfiguration(
-                    name="Public",
-                    subnet_type=ec2.SubnetType.PUBLIC,
-                    cidr_mask=24,
-                ),
-                ec2.SubnetConfiguration(
-                    name="Private",
-                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS if environment_name == "prod" else ec2.SubnetType.PUBLIC,
-                    cidr_mask=24,
-                ),
-            ],
+            "DataBucket",
+            bucket_name=f"{{cookiecutter.project_slug}}-{environment_name}-data-{cdk.Aws.ACCOUNT_ID}",
+            versioned=environment_name == "prod",
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=cdk.RemovalPolicy.DESTROY if environment_name != "prod" else cdk.RemovalPolicy.RETAIN,
+            auto_delete_objects=environment_name != "prod",
         )
 
-        # ECS Cluster
-        self.cluster = ecs.Cluster(
+        # Dead Letter Queue
+        self.dlq = sqs.Queue(
             self,
-            "Cluster",
-            vpc=self.vpc,
-            container_insights=True,
+            "DeadLetterQueue",
+            queue_name=f"{{cookiecutter.project_slug}}-{environment_name}-dlq",
+            retention_period=Duration.days(14),
+        )
+
+        # SQS Queue
+        self.queue = sqs.Queue(
+            self,
+            "ProcessingQueue",
+            queue_name=f"{{cookiecutter.project_slug}}-{environment_name}-queue",
+            visibility_timeout=Duration.minutes(5),
+            dead_letter_queue=sqs.DeadLetterQueue(
+                max_receive_count=3,
+                queue=self.dlq,
+            ),
         )
 
         # CloudWatch Log Group
         self.log_group = logs.LogGroup(
             self,
             "LogGroup",
-            log_group_name=f"/aws/ecs/{{cookiecutter.project_slug}}-{environment_name}",
+            log_group_name=f"/aws/lambda/{{cookiecutter.project_slug}}-{environment_name}",
             retention=logs.RetentionDays.ONE_WEEK if environment_name != "prod" else logs.RetentionDays.ONE_MONTH,
             removal_policy=cdk.RemovalPolicy.DESTROY if environment_name != "prod" else cdk.RemovalPolicy.RETAIN,
         )
 
-        # Fargate Service with Application Load Balancer
-        self.fargate_service = ecs_patterns.ApplicationLoadBalancedFargateService(
+        # Lambda execution role
+        self.lambda_role = iam.Role(
             self,
-            "FargateService",
-            cluster=self.cluster,
-            memory_limit_mib=512 if environment_name != "prod" else 1024,
-            cpu=256 if environment_name != "prod" else 512,
-            desired_count=1 if environment_name != "prod" else 2,
-            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_asset("../"),
-                container_port=8000,
-                log_driver=ecs.LogDrivers.aws_logs(
-                    stream_prefix="{{cookiecutter.package_name}}",
-                    log_group=self.log_group,
+            "LambdaRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+            ],
+        )
+
+        # Grant S3 permissions
+        self.bucket.grant_read_write(self.lambda_role)
+
+        # Grant SQS permissions
+        self.queue.grant_consume_messages(self.lambda_role)
+        self.dlq.grant_send_messages(self.lambda_role)
+
+        # Lambda layer for dependencies (production only)
+        self.dependencies_layer = lambda_.LayerVersion(
+            self,
+            "DependenciesLayer",
+            code=lambda_.Code.from_asset(
+                "../",
+                bundling=cdk.BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_{{cookiecutter.python_version.replace('.', '_').upper()}}.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install . --target /asset-output/python",
+                    ],
                 ),
-                environment={
-                    "ENVIRONMENT": environment_name,
-                    "LOG_LEVEL": "INFO" if environment_name == "prod" else "DEBUG",
-                },
             ),
-            public_load_balancer=True,
-            enable_logging=True,
+            compatible_runtimes=[lambda_.Runtime.PYTHON_{{cookiecutter.python_version.replace('.', '_').upper()}}],
+            description=f"Dependencies for {environment_name}",
         )
 
-        # Health check configuration
-        self.fargate_service.target_group.configure_health_check(
-            path="/health",
-            healthy_http_codes="200",
+        # Lambda function
+        self.lambda_function = lambda_.Function(
+            self,
+            "ProcessorFunction",
+            function_name=f"{{cookiecutter.project_slug}}-{environment_name}-processor",
+            runtime=lambda_.Runtime.PYTHON_{{cookiecutter.python_version.replace('.', '_').upper()}},
+            handler="handlers.processor.handler",
+            code=lambda_.Code.from_asset("../src"),
+            role=self.lambda_role,
+            layers=[self.dependencies_layer],
+            timeout=Duration.minutes(5),
+            memory_size=256 if environment_name != "prod" else 512,
+            log_group=self.log_group,
+            environment={
+                "ENVIRONMENT": environment_name,
+                "LOG_LEVEL": "INFO" if environment_name == "prod" else "DEBUG",
+                "BUCKET_NAME": self.bucket.bucket_name,
+                "QUEUE_URL": self.queue.queue_url,
+            },
         )
 
-        # Auto Scaling
-        scalable_target = self.fargate_service.service.auto_scale_task_count(
-            min_capacity=1 if environment_name != "prod" else 2,
-            max_capacity=2 if environment_name != "prod" else 10,
-        )
-
-        scalable_target.scale_on_cpu_utilization(
-            "CpuScaling",
-            target_utilization_percent=70,
-        )
-
-        scalable_target.scale_on_memory_utilization(
-            "MemoryScaling",
-            target_utilization_percent=80,
+        # SQS event source for Lambda
+        self.lambda_function.add_event_source(
+            lambda_event_sources.SqsEventSource(
+                self.queue,
+                batch_size=10 if environment_name == "prod" else 5,
+                max_batching_window=Duration.seconds(5),
+            )
         )
 
         # Store important values in SSM Parameter Store
         ssm.StringParameter(
             self,
-            "LoadBalancerUrl",
-            parameter_name=f"/{{cookiecutter.project_slug}}/{environment_name}/load-balancer-url",
-            string_value=self.fargate_service.load_balancer.load_balancer_dns_name,
+            "BucketName",
+            parameter_name=f"/{{cookiecutter.project_slug}}/{environment_name}/bucket-name",
+            string_value=self.bucket.bucket_name,
+        )
+
+        ssm.StringParameter(
+            self,
+            "QueueUrl",
+            parameter_name=f"/{{cookiecutter.project_slug}}/{environment_name}/queue-url",
+            string_value=self.queue.queue_url,
+        )
+
+        ssm.StringParameter(
+            self,
+            "LambdaArn",
+            parameter_name=f"/{{cookiecutter.project_slug}}/{environment_name}/lambda-arn",
+            string_value=self.lambda_function.function_arn,
         )
 
         # Outputs
         cdk.CfnOutput(
             self,
-            "LoadBalancerDNS",
-            value=self.fargate_service.load_balancer.load_balancer_dns_name,
-            description="Load Balancer DNS Name",
+            "BucketName",
+            value=self.bucket.bucket_name,
+            description="S3 Bucket Name",
         )
 
         cdk.CfnOutput(
             self,
-            "ServiceUrl",
-            value=f"http://{self.fargate_service.load_balancer.load_balancer_dns_name}",
-            description="Service URL",
+            "QueueUrl",
+            value=self.queue.queue_url,
+            description="SQS Queue URL",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "LambdaFunctionArn",
+            value=self.lambda_function.function_arn,
+            description="Lambda Function ARN",
         )
 {% endif %}

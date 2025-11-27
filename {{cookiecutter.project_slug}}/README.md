@@ -30,24 +30,12 @@ pre-commit install
 
 ## Usage
 
-{% if cookiecutter.include_cdk == 'yes' %}### Local Development
-```bash
-# Run development server
-make dev-server
-# Or manually:
+{% if cookiecutter.include_cdk == 'yes' %}```bash
+# Run the main module (recommended)
 python -m {{cookiecutter.package_name}}
-```
 
-The API will be available at http://localhost:8000
-- Root endpoint: http://localhost:8000/
-- Health check: http://localhost:8000/health
-- API docs: http://localhost:8000/docs
-
-### Docker
-```bash
-# Build and run with Docker
-make docker-build
-make docker-run
+# Or run directly (not recommended - may break relative imports)
+python src/{{cookiecutter.package_name}}/main.py
 ```
 {% else %}```bash
 # Run the main module (recommended)
@@ -130,18 +118,19 @@ make cdk-list
 
 ### Architecture
 
-The CDK stack creates:
-- **VPC** with public/private subnets
-- **ECS Fargate** service with auto-scaling
-- **Application Load Balancer** for traffic distribution
-- **CloudWatch** logging and monitoring
-- **Multi-environment** support with branch-based isolation
+The CDK infrastructure stack is provided as an example implementation. You can customize it to match your specific requirements:
+- Event-driven processing
+- Data storage and retrieval
+- Logging and monitoring
+- Security and access control
+- Multi-environment support with branch-based isolation
+
+The example stack demonstrates a serverless architecture pattern, but you can modify it for any AWS service (ECS, EKS, EC2, etc.).
 
 ### Environment Variables
 - `ENVIRONMENT` - Current environment (dev/staging/prod)
 - `LOG_LEVEL` - Logging level (DEBUG/INFO/WARNING/ERROR)
-- `PORT` - Server port (default: 8000)
-- `HOST` - Server host (default: 0.0.0.0)
+- Additional variables depend on your infrastructure implementation
 
 ## CI/CD Pipeline
 
