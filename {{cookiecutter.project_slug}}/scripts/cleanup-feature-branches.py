@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
-"""Script to cleanup CDK stacks for deleted feature branches."""
+"""Script to cleanup CDK stacks for deleted feature branches.
+
+This script finds and removes orphaned CDK stacks for feature branches
+that no longer exist in Git. Use this for periodic batch cleanup.
+
+For immediate cleanup of a specific MR, use the GitLab CI job:
+'cleanup:feature-branch' in the pipeline UI.
+
+Usage:
+    # Interactive (asks for confirmation)
+    make cleanup-branches
+    python scripts/cleanup-feature-branches.py
+    
+    # Automated (no confirmation, for scheduled jobs)
+    python scripts/cleanup-feature-branches.py --auto-approve
+
+Scheduled Cleanup:
+    Configure in GitLab: CI/CD > Schedules > New schedule
+    Set cron: "0 2 * * 0" (Sundays at 2 AM)
+"""
 {% if cookiecutter.include_cdk == 'yes' %}
+import argparse
 import subprocess
 import sys
 from typing import List, Set
@@ -41,12 +61,20 @@ def get_cdk_stacks() -> List[str]:
         return []
 
 
-def get_feature_stacks(stacks: List[str]) -> List[str]:
-    """Filter stacks that appear to be feature branch stacks."""
+def get_feature_stacks(stacks: List[str], project_prefix: str = "{{cookiecutter.project_slug}}") -> List[str]:
+    """Filter stacks that appear to be feature branch stacks for this project.
+    
+    Args:
+        stacks: List of all CDK stacks
+        project_prefix: Project name prefix to match (default from cookiecutter)
+        
+    Returns:
+        List of feature branch stacks for this project only
+    """
     feature_stacks = []
     for stack in stacks:
-        # Look for stacks with 'feature-' pattern
-        if "feature-" in stack.lower():
+        # Only consider stacks from this project with 'feature-' pattern
+        if stack.lower().startswith(project_prefix.lower()) and "feature-" in stack.lower():
             feature_stacks.append(stack)
     return feature_stacks
 
@@ -60,13 +88,25 @@ def extract_branch_from_stack(stack_name: str) -> str:
     return ""
 
 
-def cleanup_orphaned_stacks():
-    """Cleanup CDK stacks for branches that no longer exist."""
+def cleanup_orphaned_stacks(auto_approve: bool = False):
+    """Cleanup CDK stacks for branches that no longer exist.
+    
+    Args:
+        auto_approve: If True, delete without confirmation (for scheduled jobs)
+    
+    This compares remote Git branches with deployed CDK stacks and
+    identifies stacks for branches that have been deleted.
+    """
     print("Checking for orphaned feature branch stacks...")
+    print("(This finds stacks for deleted branches, not the current branch)")
+    print(f"Project: {{{{cookiecutter.project_slug}}}}\n")
     
     remote_branches = get_remote_branches()
     cdk_stacks = get_cdk_stacks()
     feature_stacks = get_feature_stacks(cdk_stacks)
+    
+    print(f"Found {len(cdk_stacks)} total CDK stacks in this app")
+    print(f"Found {len(feature_stacks)} feature branch stacks for this project")
     
     if not feature_stacks:
         print("No feature branch stacks found.")
@@ -86,7 +126,13 @@ def cleanup_orphaned_stacks():
     for stack in orphaned_stacks:
         print(f"  - {stack}")
     
-    if input("\\nDelete these stacks? (y/N): ").lower() == "y":
+    should_delete = auto_approve
+    if not auto_approve:
+        should_delete = input("\\nDelete these stacks? (y/N): ").lower() == "y"
+    else:
+        print("\nAuto-approve enabled, deleting stacks...")
+    
+    if should_delete:
         for stack in orphaned_stacks:
             print(f"Deleting {stack}...")
             try:
@@ -103,5 +149,15 @@ def cleanup_orphaned_stacks():
 
 
 if __name__ == "__main__":
-    cleanup_orphaned_stacks()
+    parser = argparse.ArgumentParser(
+        description="Cleanup orphaned CDK stacks for deleted feature branches"
+    )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Delete stacks without confirmation (for automated runs)",
+    )
+    args = parser.parse_args()
+    
+    cleanup_orphaned_stacks(auto_approve=args.auto_approve)
 {% endif %}

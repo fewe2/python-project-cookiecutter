@@ -113,7 +113,9 @@ deploy:infrastructure:
       variables:
         ENVIRONMENT: "feature-${CI_COMMIT_REF_SLUG}"
 
-# Cleanup feature branch deployments
+# Cleanup feature branch deployment (for current MR)
+# Use this to immediately destroy the stack when closing/merging an MR
+# For batch cleanup of orphaned stacks, use: make cleanup-branches
 cleanup:feature-branch:
   stage: deploy
   image: python:${PYTHON_VERSION}-slim
@@ -145,6 +147,25 @@ deploy:production:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     ENVIRONMENT: "prod"
+
+# Scheduled cleanup of orphaned feature branch stacks
+# Configure in GitLab: CI/CD > Schedules > New schedule
+# Set to run weekly (e.g., "0 2 * * 0" for Sundays at 2 AM)
+cleanup:orphaned-stacks:
+  stage: deploy
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - apt-get update && apt-get install -y nodejs npm git
+    - npm install -g aws-cdk
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install --cache-dir .pip-cache -e ".[cdk]"
+    - git fetch --all
+  script:
+    - python scripts/cleanup-feature-branches.py --auto-approve
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
 
 {% else %}stages:
   - test

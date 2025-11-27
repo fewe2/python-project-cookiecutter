@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict
 
 from {{cookiecutter.package_name}} import logging_config
+from {{cookiecutter.package_name}}.main import process_message
 
 logger = logging_config.get_logger("processor")
 
@@ -25,17 +26,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     batch_item_failures = []
     
     for record in event.get("Records", []):
+        message_id = record["messageId"]
         try:
-            message_id = record["messageId"]
             body = json.loads(record["body"])
             
-            logger.info(f"Processing message {message_id}: {body}")
+            logger.info(f"Processing message {message_id}")
             
-            # TODO: Implement your business logic here
-            # Example: Process data, write to S3, call other services, etc.
+            # Call business logic from main package
+            result = process_message(body)
+            
+            logger.info(f"Message {message_id} processed: {result['status']}")
             
         except Exception as e:
-            logger.error(f"Failed to process message {message_id}: {e}")
+            logger.error(f"Failed to process message {message_id}: {e}", exc_info=True)
             batch_item_failures.append({"itemIdentifier": message_id})
     
     return {"batchItemFailures": batch_item_failures}
