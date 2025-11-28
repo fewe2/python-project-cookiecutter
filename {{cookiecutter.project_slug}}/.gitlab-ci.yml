@@ -228,7 +228,7 @@ security:dependencies:
     - python -m venv .venv
     - source .venv/bin/activate
     - pip install --cache-dir .pip-cache --upgrade pip
-    - pip install --cache-dir .pip-cache safety
+    - pip install --cache-dir .pip-cache -e ".[dev]"
   script:
     - safety check --json --output safety-report.json || true
     - safety check
@@ -249,7 +249,7 @@ test:quality:
     - python -m venv .venv
     - source .venv/bin/activate
     - pip install --cache-dir .pip-cache --upgrade pip
-    - pip install --cache-dir .pip-cache -e ".[dev]" radon xenon
+    - pip install --cache-dir .pip-cache -e ".[dev]"
   script:
     - radon cc src/ --min B
     - radon mi src/ --min B

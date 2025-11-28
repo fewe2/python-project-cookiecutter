@@ -30,7 +30,13 @@ dev = [
     "mypy",
     "pytest",
     "pytest-cov",
-    "snakeviz",{% if cookiecutter.include_cdk == 'yes' %}
+    "radon",
+    "xenon",
+    "safety",
+    "snakeviz",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",{% if cookiecutter.include_cdk == 'yes' %}
     "httpx",  # for testing FastAPI
 {% endif %}
 ]

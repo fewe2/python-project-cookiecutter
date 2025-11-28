@@ -1,0 +1,61 @@
+# =============================================================================
+# SonarCloud Integration Example (OPTIONAL - NOT ENABLED BY DEFAULT)
+# =============================================================================
+# This template already includes comprehensive code quality tools (Ruff, MyPy,
+# Safety, Radon, etc.) that cover most of what SonarCloud provides.
+#
+# Only add SonarCloud if:
+# - Required by your organization
+# - You need centralized quality dashboards across multiple projects
+# - You have multi-language projects
+#
+# To enable SonarCloud:
+# 1. Sign up at https://sonarcloud.io
+# 2. Add your project and get the token
+# 3. Add CI/CD variable: SONAR_TOKEN
+# 4. Uncomment the job below and add to .gitlab-ci.yml
+# 5. Create sonar-project.properties file (see below)
+# =============================================================================
+
+# Add this job to .gitlab-ci.yml in the security stage:
+#
+# sonarcloud:
+#   stage: security
+#   image: sonarsource/sonar-scanner-cli:latest
+#   variables:
+#     SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+#     GIT_DEPTH: "0"
+#   cache:
+#     key: "${CI_JOB_NAME}"
+#     paths:
+#       - .sonar/cache
+#   script:
+#     - sonar-scanner
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#   allow_failure: true
+
+# =============================================================================
+# Create sonar-project.properties in project root:
+# =============================================================================
+#
+# sonar.projectKey=your-org_{{cookiecutter.project_slug}}
+# sonar.organization=your-org
+# sonar.projectName={{cookiecutter.project_name}}
+# sonar.projectVersion=1.0
+# 
+# # Source code
+# sonar.sources=src
+# sonar.tests=tests
+# sonar.python.version={{cookiecutter.python_version}}
+# 
+# # Coverage
+# sonar.python.coverage.reportPaths=coverage.xml
+# 
+# # Exclusions
+# sonar.exclusions=**/__pycache__/**,**/.venv/**,**/tests/**
+# sonar.test.exclusions=**/tests/**
+# 
+# # Quality gate (optional)
+# sonar.qualitygate.wait=true

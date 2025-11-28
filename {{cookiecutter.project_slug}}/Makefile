@@ -35,6 +35,31 @@ format: ## Format code
 type-check: ## Run type checking
 	$(VENV)/mypy src/{{cookiecutter.package_name}}
 
+complexity: ## Check code complexity
+	@echo "Cyclomatic Complexity:"
+	$(VENV)/radon cc src/ --min B
+	@echo "\nMaintainability Index:"
+	$(VENV)/radon mi src/ --min B
+	@echo "\nComplexity Check:"
+	$(VENV)/xenon src/ --max-absolute B --max-modules B --max-average A
+
+security: ## Run security checks
+	@echo "Checking for secrets..."
+	$(VENV)/detect-secrets scan --baseline .secrets.baseline
+	@echo "\nChecking dependencies for vulnerabilities..."
+	$(VENV)/safety check
+
+quality: lint type-check complexity ## Run all quality checks
+
+docs-serve: ## Serve documentation locally
+	$(VENV)/mkdocs serve
+
+docs-build: ## Build documentation
+	$(VENV)/mkdocs build
+
+docs-deploy: ## Deploy documentation to GitLab Pages
+	$(VENV)/mkdocs gh-deploy
+
 profile: ## Profile the app
 	python -m cProfile -o profile_results.prof -m {{cookiecutter.package_name}}.main
 	$(VENV)/snakeviz profile_results.prof
